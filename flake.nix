@@ -12,15 +12,26 @@
             let
                 overlays = [ (import rust-overlay )];
                 pkgs = import nixpkgs {
-                        inherit system overlays;
+                    inherit system overlays;
                 };
+                rustToolchain = (
+                    pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml
+                );
             in with pkgs;
             {
                 devShells.default = mkShell {
-                    buildInputs = [
-                        rust-bin.stable.latest.default
-                        pkgs.espup
+                    nativeBuildInputs = [
+                        #rustToolchain
                     ];
+
+                    buildInputs = with pkgs; [
+                        espup
+                    ];
+
+                    shellHook = ''
+                        echo "Please run -espup install- if the esp-rs toolchain is not installed yet."
+                        source $HOME/export-esp.sh
+                    '';
                 };
             }
         );
