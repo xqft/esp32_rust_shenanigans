@@ -1,38 +1,49 @@
 {
-    description = "xqft's Rust & ESP32 shenanigans";
+  description = "A Nix-flake-based Rust development environment";
 
-    inputs = {
-        rust-overlay.url = "github:oxalica/rust-overlay";
-        flake-utils.url = "github:numtide/flake-utils";
-        nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+  };
 
-    outputs = { nixpkgs, rust-overlay, flake-utils, ... }:
-        flake-utils.lib.eachDefaultSystem (system:
+  outputs = { self, nixpkgs, rust-overlay }:
+    let
+      overlays = [
+        rust-overlay.overlays.default
+        (final: prev: {
+          rustToolchain =
             let
-                overlays = [ (import rust-overlay )];
-                pkgs = import nixpkgs {
-                    inherit system overlays;
-                };
-                rustToolchain = (
-                    pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml
-                );
-            in with pkgs;
-            {
-                devShells.default = mkShell {
-                    nativeBuildInputs = [
-                        #rustToolchain
-                    ];
-
-                    buildInputs = with pkgs; [
-                        espup
-                    ];
-
-                    shellHook = ''
-                        echo "Please run -espup install- if the esp-rs toolchain is not installed yet."
-                        source $HOME/export-esp.sh
-                    '';
-                };
-            }
-        );
+              rust = prev.rust-bin;
+            in
+            if builtins.pathExists ./rust-toolchain.toml then
+              rust.fromRustupToolchainFile ./rust-toolchain.toml
+            else if builtins.pathExists ./rust-toolchain then
+              rust.fromRustupToolchainFile ./rust-toolchain
+            else
+              rust.stable.latest.default;
+        })
+      ];
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
+        pkgs = import nixpkgs { inherit overlays system; };
+      });
+    in
+    {
+      devShells = forEachSupportedSystem ({ pkgs }: {
+        default = pkgs.mkShell {
+          packages = with pkgs; [
+            rustToolchain
+            openssl
+            pkg-config
+            cargo-deny
+            cargo-edit
+            cargo-watch
+            rust-analyzer
+          ];
+        };
+      });
+    };
 }
