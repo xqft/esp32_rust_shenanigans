@@ -16,14 +16,16 @@ use hal::{
     prelude::_fugit_RateExtU32,
 };
 
+/// We define MotorPWMPinA for using MCPWM0, operator 0 and pin A.
 type MotorPWMPinA<'d, Pin: OutputPin> = PwmPin<'d, Pin, MCPWM0, 0, true>;
+/// We define MotorPWMPinB for using MCPWM0, operator 0 and pin B.
 type MotorPWMPinB<'d, Pin: OutputPin> = PwmPin<'d, Pin, MCPWM0, 0, false>;
 
 /// True if a single motor configuration has been initialized.
 static _SINGLE_MOTOR_CONFIG_INIT: AtomicBool = AtomicBool::new(false);
 
 /// A singleton structure that defines a single motor configuration.
-struct SingleMotorConfig<'d, Pin>
+pub struct SingleMotorConfig<'d, Pin>
 where
     Pin: OutputPin + 'd,
 {
@@ -31,13 +33,9 @@ where
 }
 
 impl<'d, Pin: OutputPin> SingleMotorConfig<'d, Pin> {
-    const PERIOD: u16 = u16::MAX;
+    const PERIOD: u16 = 256;
 
-    pub fn take(
-        pin: impl Peripheral<P = Pin> + 'd,
-        peripherals: Peripherals,
-        clocks: &Clocks,
-    ) -> Self {
+    pub fn take(pin: impl Peripheral<P = Pin> + 'd, mcpwm0: MCPWM0, clocks: &Clocks) -> Self {
         if _SINGLE_MOTOR_CONFIG_INIT.load(Ordering::Relaxed) {
             panic!("single motor config initialized more than once!");
         }
@@ -45,7 +43,7 @@ impl<'d, Pin: OutputPin> SingleMotorConfig<'d, Pin> {
 
         // configure clock
         let clock_cfg = PeripheralClockConfig::with_frequency(clocks, 40u32.MHz()).unwrap();
-        let mut mcpwm = MCPWM::new(peripherals.MCPWM0, clock_cfg);
+        let mut mcpwm = MCPWM::new(mcpwm0, clock_cfg);
         mcpwm.operator0.set_timer(&mcpwm.timer0);
         let pwm_pin = mcpwm.operator0.with_pin_a(
             pin,

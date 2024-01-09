@@ -7,6 +7,7 @@ extern crate alloc;
 use core::mem::MaybeUninit;
 use embassy_executor::Spawner;
 use embassy_time::Timer;
+use esp32_shenanigans::motor::{self, SingleMotorConfig};
 use esp_backtrace as _;
 use hal::{
     clock::ClockControl,
@@ -58,26 +59,19 @@ async fn main(_spawner: Spawner) {
     let timer_group0 = TimerGroup::new(peripherals.TIMG0, &clocks);
     embassy::init(&clocks, timer_group0.timer0);
 
-    let clock_cfg = PeripheralClockConfig::with_frequency(&clocks, 40u32.MHz()).unwrap();
-
     // motor pwm
-    let mut mcpwm = MCPWM::new(peripherals.MCPWM0, clock_cfg);
-    mcpwm.operator0.set_timer(&mcpwm.timer0);
-    let mut pwm_pin = mcpwm.operator0.with_pin_a(
+    let mut motor_config = SingleMotorConfig::take(
         io.pins.gpio32.into_push_pull_output(),
-        PwmPinConfig::new(PwmActions::UP_ACTIVE_HIGH, PwmUpdateMethod::SYNC_IMMEDIATLY),
+        peripherals.MCPWM0,
+        &clocks,
     );
-    let timer_clock_cfg = clock_cfg
-        .timer_clock_with_frequency(99, PwmWorkingMode::Increase, 5u32.kHz())
-        .unwrap();
-    mcpwm.timer0.start(timer_clock_cfg);
 
     for i in 0..5 {
-        pwm_pin.set_timestamp(99 / 5 * i);
+        motor_config.set_duty_cycle(1.0 / 5.0 * i as f32);
         Timer::after_secs(1).await;
     }
     for i in (0..5).rev() {
-        pwm_pin.set_timestamp(99 / 5 * i);
+        motor_config.set_duty_cycle(1.0 / 5.0 * i as f32);
         Timer::after_secs(1).await;
     }
 
