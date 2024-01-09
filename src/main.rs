@@ -6,12 +6,10 @@ extern crate alloc;
 
 use core::mem::MaybeUninit;
 use embassy_executor::Spawner;
-use embassy_time::{Duration, Timer};
+use embassy_time::Timer;
 use esp_backtrace as _;
-use esp_println::println;
 use hal::{
     clock::ClockControl,
-    embassy::executor::Executor,
     gpio::{AnyPin, Output, PushPull},
     mcpwm::{
         operator::{PwmActions, PwmPinConfig, PwmUpdateMethod},
@@ -20,14 +18,13 @@ use hal::{
     },
     peripherals::Peripherals,
     prelude::*,
-    Delay, IO,
+    IO,
+};
+use hal::{
+    embassy::{self},
+    timer::TimerGroup,
 };
 
-use hal::{
-    embassy::{self, executor},
-    timer::TimerGroup,
-    Rng,
-};
 #[global_allocator]
 static ALLOCATOR: esp_alloc::EspHeap = esp_alloc::EspHeap::empty();
 
