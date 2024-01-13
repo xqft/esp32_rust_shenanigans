@@ -7,7 +7,7 @@ extern crate alloc;
 use core::mem::MaybeUninit;
 use embassy_executor::Spawner;
 use embassy_time::Timer;
-use esp32_shenanigans::motor::{self, SingleMotorConfig};
+use esp32_shenanigans::motor::{self, DoubleMotorConfig, SingleMotorConfig};
 use esp_backtrace as _;
 use esp_println::println;
 use hal::{
@@ -64,8 +64,9 @@ async fn main(_spawner: Spawner) {
     embassy::init(&clocks, timer_group0.timer0);
 
     // motor pwm
-    let mut motor_config = SingleMotorConfig::take(
+    let mut motor_config = DoubleMotorConfig::take(
         io.pins.gpio32.into_push_pull_output(),
+        io.pins.gpio33.into_push_pull_output(),
         peripherals.MCPWM0,
         &clocks,
     );
@@ -86,7 +87,8 @@ async fn main(_spawner: Spawner) {
 
     loop {
         let pot_val = (nb::block!(adc1.read(&mut pin35)).unwrap() as u16) as f32 / 4000 as f32;
-        motor_config.set_duty_cycle(pot_val);
+        motor_config.set_duty_cycle_a(pot_val);
+        motor_config.set_duty_cycle_b(pot_val);
         println!("val: {}", nb::block!(adc1.read(&mut pin35)).unwrap() as u16);
         println!("val_normal: {}", pot_val);
         Timer::after_millis(200).await;
