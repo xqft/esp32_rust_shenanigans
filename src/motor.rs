@@ -51,7 +51,7 @@ impl<'d, Pin: OutputPin> SingleMotorConfig<'d, Pin> {
         );
 
         let timer_clock_cfg = clock_cfg
-            .timer_clock_with_frequency(Self::PERIOD, PwmWorkingMode::Increase, 5u32.kHz())
+            .timer_clock_with_frequency(Self::PERIOD, PwmWorkingMode::Increase, 10u32.kHz())
             .unwrap();
         mcpwm.timer0.start(timer_clock_cfg);
 

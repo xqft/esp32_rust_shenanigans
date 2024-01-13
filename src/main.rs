@@ -9,8 +9,12 @@ use embassy_executor::Spawner;
 use embassy_time::Timer;
 use esp32_shenanigans::motor::{self, SingleMotorConfig};
 use esp_backtrace as _;
+use esp_println::println;
 use hal::{
+    adc::{AdcConfig, Attenuation, ADC},
+    analog::{ADC1, ADC2},
     clock::ClockControl,
+    delay,
     gpio::{AnyPin, Output, PushPull},
     mcpwm::{
         operator::{PwmActions, PwmPinConfig, PwmUpdateMethod},
@@ -19,7 +23,7 @@ use hal::{
     },
     peripherals::Peripherals,
     prelude::*,
-    IO,
+    Delay, IO,
 };
 use hal::{
     embassy::{self},
@@ -66,19 +70,25 @@ async fn main(_spawner: Spawner) {
         &clocks,
     );
 
-    for i in 0..5 {
-        motor_config.set_duty_cycle(1.0 / 5.0 * i as f32);
-        Timer::after_secs(1).await;
-    }
-    for i in (0..5).rev() {
-        motor_config.set_duty_cycle(1.0 / 5.0 * i as f32);
-        Timer::after_secs(1).await;
-    }
+    // setup potentiometer on pin 35 for motor speed control
+    let analog = peripherals.SENS.split();
+    let mut adc1_config = AdcConfig::new();
+    let mut pin35 =
+        adc1_config.enable_pin(io.pins.gpio35.into_analog(), Attenuation::Attenuation11dB);
+    let mut adc1 = ADC::<ADC1>::adc(analog.adc1, adc1_config).unwrap();
 
     // setup logger
     esp_println::logger::init_logger_from_env();
     log::info!("Logger is setup");
 
     let led_pin = io.pins.gpio2.into_push_pull_output().into();
-    handle_led(led_pin).await;
+    handle_led(led_pin);
+
+    loop {
+        let pot_val = (nb::block!(adc1.read(&mut pin35)).unwrap() as u16) as f32 / 4000 as f32;
+        motor_config.set_duty_cycle(pot_val);
+        println!("val: {}", nb::block!(adc1.read(&mut pin35)).unwrap() as u16);
+        println!("val_normal: {}", pot_val);
+        Timer::after_millis(200).await;
+    }
 }
